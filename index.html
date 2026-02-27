@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amex Platinum - Gourmet Club 2026 Restaurant Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        #app { display: flex; height: 100vh; }
+        #sidebar {
+            width: 380px; min-width: 380px; background: #fff;
+            display: flex; flex-direction: column; border-right: 1px solid #ddd;
+            z-index: 1000;
+        }
+        #sidebar-header {
+            padding: 16px; background: #006fcf; color: #fff;
+        }
+        #sidebar-header h1 { font-size: 18px; margin-bottom: 4px; }
+        #sidebar-header p { font-size: 12px; opacity: 0.85; }
+        #search-bar {
+            padding: 12px 16px; border-bottom: 1px solid #eee;
+        }
+        #search-input {
+            width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
+            font-size: 14px; outline: none;
+        }
+        #search-input:focus { border-color: #006fcf; box-shadow: 0 0 0 2px rgba(0,111,207,0.15); }
+        #filters {
+            padding: 8px 16px; border-bottom: 1px solid #eee;
+            display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .filter-btn {
+            padding: 4px 10px; border: 1px solid #ddd; border-radius: 16px;
+            font-size: 12px; cursor: pointer; background: #fff; white-space: nowrap;
+        }
+        .filter-btn.active { background: #006fcf; color: #fff; border-color: #006fcf; }
+        #restaurant-list {
+            flex: 1; overflow-y: auto; padding: 8px;
+        }
+        .restaurant-card {
+            padding: 12px; margin-bottom: 6px; border-radius: 8px; cursor: pointer;
+            border: 1px solid #eee; transition: all 0.15s;
+        }
+        .restaurant-card:hover { border-color: #006fcf; background: #f0f7ff; }
+        .restaurant-card.highlighted { border-color: #006fcf; background: #e6f0ff; }
+        .restaurant-name { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+        .restaurant-name-zh { font-size: 13px; color: #555; margin-top: 1px; }
+        .restaurant-group { font-size: 11px; color: #006fcf; margin-top: 4px; font-weight: 500; }
+        .restaurant-discount {
+            display: inline-block; margin-top: 4px; padding: 2px 8px;
+            background: #e8f5e9; color: #2e7d32; border-radius: 4px; font-size: 12px; font-weight: 600;
+        }
+        .restaurant-address { font-size: 12px; color: #777; margin-top: 4px; line-height: 1.3; }
+        .restaurant-meta { font-size: 11px; color: #999; margin-top: 4px; }
+        .card-badge {
+            display: inline-block; margin-top: 4px; padding: 1px 6px;
+            background: #e3f2fd; color: #1565c0; border-radius: 3px; font-size: 10px; font-weight: 500;
+        }
+        #count-bar {
+            padding: 8px 16px; font-size: 12px; color: #888; border-bottom: 1px solid #eee;
+        }
+        #map-container { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
+
+        .leaflet-popup-content-wrapper { border-radius: 10px; }
+        .leaflet-popup-content { margin: 12px 16px; font-family: inherit; }
+        .popup-name { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+        .popup-name-zh { font-size: 14px; color: #555; }
+        .popup-group { font-size: 12px; color: #006fcf; margin-top: 4px; }
+        .popup-discount { font-size: 14px; color: #2e7d32; font-weight: 600; margin-top: 6px; }
+        .popup-details { font-size: 11px; color: #555; margin-top: 4px; line-height: 1.5; white-space: pre-line; }
+        .popup-address { font-size: 12px; color: #777; margin-top: 6px; line-height: 1.4; }
+        .popup-cards { font-size: 11px; color: #1565c0; margin-top: 4px; }
+        .popup-timing { font-size: 11px; color: #888; margin-top: 2px; }
+
+        @media (max-width: 768px) {
+            #app { flex-direction: column; }
+            #sidebar { width: 100%; min-width: auto; height: 45vh; }
+            #map-container { height: 55vh; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div id="sidebar">
+        <div id="sidebar-header">
+            <h1>Amex Platinum Gourmet Club 2026</h1>
+            <p>Hong Kong Dining Privileges - Platinum Card Benefits</p>
+        </div>
+        <div id="search-bar">
+            <input id="search-input" type="text" placeholder="Search restaurant, area, cuisine...">
+        </div>
+        <div id="filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="30up">30%+ off</button>
+            <button class="filter-btn" data-filter="maxims">Maxim's</button>
+            <button class="filter-btn" data-filter="central">Central</button>
+            <button class="filter-btn" data-filter="tst">TST</button>
+            <button class="filter-btn" data-filter="cwb">CWB</button>
+            <button class="filter-btn" data-filter="kowloon">Kowloon</button>
+            <button class="filter-btn" data-filter="nt">NT</button>
+        </div>
+        <div id="count-bar"></div>
+        <div id="restaurant-list"></div>
+    </div>
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const restaurants = [
+    // ===== B. 1957 & Co. - 30% off dinner after 6pm (Platinum Card only) =====
+    { name: "10 Shanghai", nameZh: "十里洋場", group: "1957 & Co.", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum", address: "Shop B01-B10, B1/F, Lee Garden Three, 1 Sunning Road, Causeway Bay", lat: 22.2790, lng: 114.1835, area: "cwb" },
+    { name: "An Nam", nameZh: "安南", group: "1957 & Co.", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum", address: "3/F, Lee Garden Two, 28 Yun Ping Road, Causeway Bay", lat: 22.2792, lng: 114.1830, area: "cwb" },
+    { name: "Gonpachi (Causeway Bay)", nameZh: "權八", group: "1957 & Co.", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum", address: "3/F, Lee Garden Two, 28 Yun Ping Road, Causeway Bay", lat: 22.2793, lng: 114.1831, area: "cwb" },
+    { name: "Gonpachi (TST)", nameZh: "權八", group: "1957 & Co.", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum", address: "28/F, One Peking, Tsim Sha Tsui", lat: 22.2956, lng: 114.1692, area: "tst" },
+    { name: "Mango Tree", nameZh: "", group: "1957 & Co.", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum", address: "Shop 2032-2033, 2/F, Elements, 1 Austin Road West", lat: 22.3048, lng: 114.1615, area: "tst" },
+    { name: "Paper Moon", nameZh: "", group: "1957 & Co.", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum", address: "Shop OTE301, Level 3, Ocean Terminal, Harbour City, TST", lat: 22.2942, lng: 114.1680, area: "tst" },
+
+    // ===== C. agnès b. CAFÉ - 30% off all day (Platinum Credit Card only) =====
+    { name: "agnès b. CAFÉ (Cityplaza)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop 280-282, Cityplaza South, Taikoo Shing", lat: 22.2840, lng: 114.2168, area: "cwb" },
+    { name: "agnès b. CAFÉ (ifc)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop 3002-3005, Podium Level 3, ifc mall, Central", lat: 22.2855, lng: 114.1578, area: "central" },
+    { name: "agnès b. CAFÉ (Southside Mall)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop 132, 1/F, Southside Mall, 11 Heung Yip Road, Wong Chuk Hang", lat: 22.2481, lng: 114.1687, area: "cwb" },
+    { name: "agnès b. CAFÉ (Times Square)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Kiosk D, Level 6, Times Square, Causeway Bay", lat: 22.2780, lng: 114.1823, area: "cwb" },
+    { name: "agnès b. CAFÉ (Langham Place)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop 33, Level 3, Langham Place, 8 Argyle Street, Mongkok", lat: 22.3186, lng: 114.1697, area: "kowloon" },
+    { name: "agnès b. CAFÉ (PopCorn)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop G14, PopCorn, 9 Tong Yin Street, Tseung Kwan O", lat: 22.3074, lng: 114.2599, area: "nt" },
+    { name: "agnès b. CAFÉ (YOHO MALL)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop 1159, YOHO MALL I, Yuen Long", lat: 22.4445, lng: 114.0223, area: "nt" },
+    { name: "agnès b. CAFÉ (Festival Walk)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop 1-49, LG1/F, Festival Walk, Kowloon Tong", lat: 22.3372, lng: 114.1755, area: "kowloon" },
+    { name: "agnès b. CAFÉ (V City)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop M-93C, MTR Level, V City, Tuen Mun", lat: 22.3908, lng: 113.9726, area: "nt" },
+    { name: "agnès b. CAFÉ (The Wai)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Kiosk 11, 2/F, The Wai, 18 Che Kung Miu Road, Tai Wai", lat: 22.3726, lng: 114.1790, area: "nt" },
+    { name: "agnès b. CAFÉ (Kai Tak)", nameZh: "", group: "agnès b. CAFÉ", discount: "30% off all day", discountPct: 30, timing: "All day (dine-in & takeaway)", cards: "Platinum Credit", address: "Shop 117-124, Tower II, The Twins, Kai Tak", lat: 22.3309, lng: 114.2012, area: "kowloon" },
+
+    // ===== D. Cafe Deco Group - 30% off dinner after 6pm =====
+    { name: "ANJU Modern Korean", nameZh: "", group: "Cafe Deco Group", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "Shop R004, R/F, Civic Square, Metal Zone, ELEMENTS, TST", lat: 22.3046, lng: 114.1617, area: "tst" },
+    { name: "CAFE DECO PIZZERIA (Elements)", nameZh: "", group: "Cafe Deco Group", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "Shop 2133, ELEMENTS, 1 Austin Road West", lat: 22.3050, lng: 114.1613, area: "tst" },
+    { name: "CAFE DECO PIZZERIA (The Wai)", nameZh: "", group: "Cafe Deco Group", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "Shop 218, 2/F, The Wai, 18 Che Kung Miu Road, Tai Wai", lat: 22.3728, lng: 114.1788, area: "nt" },
+    { name: "Duan Chun Zhen", nameZh: "段純貞牛肉麵", group: "Cafe Deco Group", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "Shop 2132, 2/F, Fire Zone, ELEMENTS, 1 Austin Road West, TST", lat: 22.3047, lng: 114.1618, area: "tst" },
+    { name: "WATERMARK", nameZh: "", group: "Cafe Deco Group", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "Shop L, Level P, Central Pier 7, Star Ferry, Central", lat: 22.2875, lng: 114.1567, area: "central" },
+    { name: "Uogashi Nihonichi", nameZh: "魚がし日本一", group: "Cafe Deco Group", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "Shop G12, G/F Central Market, 80 Des Voeux Road Central", lat: 22.2833, lng: 114.1557, area: "central" },
+
+    // ===== E. Chess House - 30% off all day food & beverages (Platinum Card only) =====
+    { name: "BKK", nameZh: "", group: "Chess House", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop SG09-SG14, G/F, Block A Staunton, PMQ, 35 Aberdeen Street, Central", lat: 22.2830, lng: 114.1520, area: "central" },
+    { name: "CHUTNEY", nameZh: "", group: "Chess House", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "4/F, Carfield Commercial Building, 75-77 Wyndham Street, Central", lat: 22.2814, lng: 114.1555, area: "central" },
+    { name: "MAMTOM", nameZh: "", group: "Chess House", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop 1-6 & 45-46, G/F, Wing On Plaza, 62 Mody Road, TST", lat: 22.2958, lng: 114.1748, area: "tst" },
+    { name: "Sepoy Mess", nameZh: "", group: "Chess House", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop R008, R/F, Civic Square, Metal Zone, ELEMENTS, TST", lat: 22.3049, lng: 114.1616, area: "tst" },
+    { name: "Shahrazad Lebanese", nameZh: "", group: "Chess House", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "2/F, Carfield Commercial Building, 75-77 Wyndham Street, Central", lat: 22.2815, lng: 114.1554, area: "central" },
+
+    // ===== F. Elite Concepts - Various (Platinum Card; Platinum Credit for yè shanghai tea set only) =====
+    { name: "Deng G", nameZh: "鄧記", group: "Elite Concepts", discount: "30% off designated menu", discountPct: 30, timing: "Dine-in", cards: "Platinum", address: "412-413, Level 4, K11 MUSEA, 18 Salisbury Road, TST", lat: 22.2940, lng: 114.1745, area: "tst" },
+    { name: "Lotus and Spice", nameZh: "江南川", group: "Elite Concepts", discount: "30% off designated menu", discountPct: 30, timing: "Dine-in", cards: "Platinum", address: "G/F, Expo Galleria, HKCEC, 1 Expo Drive, Wan Chai", lat: 22.2822, lng: 114.1738, area: "cwb" },
+    { name: "Nanhai No. 2", nameZh: "南海二號", group: "Elite Concepts", discount: "30% off designated menu", discountPct: 30, timing: "Dine-in", cards: "Platinum", address: "12/F, World Trade Centre, 280 Gloucester Road, Causeway Bay", lat: 22.2820, lng: 114.1862, area: "cwb" },
+    { name: "yè shanghai", nameZh: "夜上海", group: "Elite Concepts", discount: "30% off menu + 50% tea set", discountPct: 50, timing: "Dine-in + Afternoon tea", cards: "Platinum / Platinum Credit", details: "Platinum: 30% off designated menu + 50% off tea set\nPlatinum Credit: 50% off tea set only", address: "702, 7/F, K11 MUSEA, 18 Salisbury Rd, TST", lat: 22.2941, lng: 114.1746, area: "tst" },
+    { name: "Penthouse", nameZh: "", group: "Elite Concepts", discount: "20% off dining & beverage", discountPct: 20, timing: "Dine-in (incl. access fee)", cards: "Platinum", address: "31/F, iSQUARE, 63 Nathan Rd, TST", lat: 22.2976, lng: 114.1720, area: "tst" },
+
+    // ===== G. JIA Group - 30% off all day food & beverages (Platinum Card only) =====
+    { name: "22 Ships", nameZh: "", group: "JIA Group", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "S109-S113, Block A, PMQ, Staunton St, Central", lat: 22.2831, lng: 114.1521, area: "central" },
+    { name: "Chachawan", nameZh: "", group: "JIA Group", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "206 Hollywood Rd, Sheung Wan", lat: 22.2845, lng: 114.1490, area: "central" },
+    { name: "Duddell's", nameZh: "都爹利會館", group: "JIA Group", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "3/F, 1 Duddell Street, Central", lat: 22.2808, lng: 114.1590, area: "central" },
+    { name: "La Terrace by Louise", nameZh: "", group: "JIA Group", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "G/F, PMQ, 35 Aberdeen Street, Central", lat: 22.2829, lng: 114.1519, area: "central" },
+    { name: "Leela", nameZh: "", group: "JIA Group", discount: "30% off all day", discountPct: 30, timing: "All day (food)", cards: "Platinum", address: "Shop 301-310, Lee Garden Three, Causeway Bay", lat: 22.2791, lng: 114.1836, area: "cwb" },
+
+    // ===== H. Maxim's Chinese Cuisine & Western Restaurants (Platinum / Platinum Credit) =====
+    // Platinum discount: Mon-Thu 2-3 pax 40% off, Mon-Thu 4-12 pax 25% off, Fri-Sun 25% off
+    // Takeaway: 20% off all day (except CAFÉ LANDMARK)
+
+    // --- Maxim's Palace 美心皇宮 (7 branches) ---
+    { name: "Maxim's Palace (City Hall)", nameZh: "美心皇宮", group: "Maxim's Palace (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "2/F, Low Block, City Hall, Central", lat: 22.2817, lng: 114.1620, area: "central" },
+    { name: "Maxim's Palace (Shun Tak Centre)", nameZh: "美心皇宮", group: "Maxim's Palace (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "B13-B18, Basement, Shun Tak Centre, 168-200 Connaught Road Central, Sheung Wan", lat: 22.2888, lng: 114.1518, area: "central" },
+    { name: "Maxim's Palace (Telford Plaza)", nameZh: "美心皇宮", group: "Maxim's Palace (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "G54, Telford Plaza Phase I, Kowloon Bay", lat: 22.3231, lng: 114.2136, area: "kowloon" },
+    { name: "Maxim's Palace (MOKO)", nameZh: "美心皇宮", group: "Maxim's Palace (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "6/F, MOKO, Bute Street, Mong Kok", lat: 22.3210, lng: 114.1710, area: "kowloon" },
+    { name: "Maxim's Palace (Tsuen Wan)", nameZh: "美心皇宮", group: "Maxim's Palace (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "G27, G/F, Luk Yeung Galleria, Tsuen Wan", lat: 22.3706, lng: 114.1132, area: "nt" },
+    { name: "Maxim's Palace (Tuen Mun)", nameZh: "美心皇宮", group: "Maxim's Palace (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Tuen Mun Town Hall, 3 Tuen Hi Road, Tuen Mun", lat: 22.3916, lng: 113.9768, area: "nt" },
+    { name: "Maxim's Palace (Sha Tin)", nameZh: "美心皇宮", group: "Maxim's Palace (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Platform, Sha Tin Town Hall, 1 Yuen Wo Road, Sha Tin", lat: 22.3817, lng: 114.1888, area: "nt" },
+
+    // --- Jade Garden 翠園 (8 branches) ---
+    { name: "Jade Garden (Star House)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "4/F, Star House, 3 Salisbury Road, TST", lat: 22.2943, lng: 114.1708, area: "tst" },
+    { name: "Jade Garden (Tai Koo)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "1/F, 14 Tai Koo Wan Road, Tai Koo", lat: 22.2845, lng: 114.2168, area: "cwb" },
+    { name: "Jade Garden (Wong Tai Sin)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "G12, G/F, Temple Mall North, 136 Lung Cheung Road, Wong Tai Sin", lat: 22.3434, lng: 114.1940, area: "kowloon" },
+    { name: "Jade Garden (PopCorn TKO)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 1-2, PopFood, 2/F, PopCorn, 9 Tong Yin Street, TKO", lat: 22.3074, lng: 114.2599, area: "nt" },
+    { name: "Jade Garden (Sha Tin)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 801A, 8/F, New Town Plaza Phase I, Sha Tin", lat: 22.3814, lng: 114.1880, area: "nt" },
+    { name: "Jade Garden (Kwai Chung)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 1, Kwai Tsing Theatre, 12 Hing Ning Road, Kwai Chung", lat: 22.3564, lng: 114.1255, area: "nt" },
+    { name: "Jade Garden (YOHO Mall)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 2039, Level 2, YOHO Mall I, 9 Long Yat Road, Yuen Long", lat: 22.4445, lng: 114.0223, area: "nt" },
+    { name: "Jade Garden (Tai Po)", nameZh: "翠園", group: "Jade Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shops 136-150, 1/F, Zone B, Tai Po Mega Mall, 9 On Pong Road, Tai Po", lat: 22.4515, lng: 114.1644, area: "nt" },
+
+    // --- Peking Garden 北京樓 (9 branches) ---
+    { name: "Peking Garden (Central)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "B1, Basement, Alexandra House, Central", lat: 22.2815, lng: 114.1595, area: "central" },
+    { name: "Peking Garden (Admiralty)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 005, LG1, Pacific Place, Admiralty", lat: 22.2774, lng: 114.1653, area: "central" },
+    { name: "Peking Garden (Cityplaza)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 201, 2/F, Cityplaza Phase II, Tai Koo", lat: 22.2840, lng: 114.2168, area: "cwb" },
+    { name: "Peking Garden (Star House)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "3/F, Star House, 3 Salisbury Road, TST", lat: 22.2943, lng: 114.1708, area: "tst" },
+    { name: "Peking Garden (Telford Plaza)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "F20, Telford Plaza Phase I, Kowloon Bay", lat: 22.3231, lng: 114.2136, area: "kowloon" },
+    { name: "Peking Garden (Grand Century Place)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 525, 5/F, Grand Century Place, 193 Prince Edward Road West, Mong Kok", lat: 22.3244, lng: 114.1680, area: "kowloon" },
+    { name: "Peking Garden (Metroplaza)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "511-530, 5/F, Metroplaza, Kwai Fong", lat: 22.3570, lng: 114.1295, area: "nt" },
+    { name: "Peking Garden (YOHO Mall)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shops 2061-2062, Level 2, YOHO Mall I, Yuen Long", lat: 22.4445, lng: 114.0225, area: "nt" },
+    { name: "Peking Garden (Sha Tin)", nameZh: "北京樓", group: "Peking Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 801C, 8/F, New Town Plaza Phase I, Sha Tin", lat: 22.3814, lng: 114.1882, area: "nt" },
+
+    // --- Chiuchow Garden 潮江春 (4 branches) ---
+    { name: "Chiuchow Garden (Sheung Wan)", nameZh: "潮江春", group: "Chiuchow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "3/F, Infinitus Plaza, 199 Des Voeux Road Central, Sheung Wan", lat: 22.2867, lng: 114.1500, area: "central" },
+    { name: "Chiuchow Garden (Causeway Bay)", nameZh: "潮江春", group: "Chiuchow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "2/F, Causeway Bay Plaza Phase II, 463-483 Lockhart Road, Causeway Bay", lat: 22.2792, lng: 114.1849, area: "cwb" },
+    { name: "Chiuchow Garden (Tsuen Wan)", nameZh: "潮江春", group: "Chiuchow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shops 536-539, 5/F, Tsuen Wan Plaza, 4-30 Tai Pa Street, Tsuen Wan", lat: 22.3720, lng: 114.1140, area: "nt" },
+    { name: "Chiuchow Garden (Sheung Shui)", nameZh: "潮江春", group: "Chiuchow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 601, 6/F, Sheung Shui Spot, 48 Lung Sum Avenue, Sheung Shui", lat: 22.5013, lng: 114.1271, area: "nt" },
+
+    // --- Chiu Chow Garden 潮庭 (6 branches) ---
+    { name: "Chiu Chow Garden (Tai Koo)", nameZh: "潮庭", group: "Chiu Chow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "100, 1/F, 12 Tai Koo Wan Road, Tai Koo", lat: 22.2845, lng: 114.2170, area: "cwb" },
+    { name: "Chiu Chow Garden (Star House)", nameZh: "潮庭", group: "Chiu Chow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "2/F, East Wing, Star House, 3 Salisbury Road, TST", lat: 22.2943, lng: 114.1710, area: "tst" },
+    { name: "Chiu Chow Garden (Metroplaza)", nameZh: "潮庭", group: "Chiu Chow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "511-530, 5/F, Metroplaza, Kwai Fong", lat: 22.3570, lng: 114.1297, area: "nt" },
+    { name: "Chiu Chow Garden (TKO Gateway)", nameZh: "潮庭", group: "Chiu Chow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shops 220A-220B, 2/F, TKO Gateway, 9 Tong Tak Street, TKO", lat: 22.3075, lng: 114.2607, area: "nt" },
+    { name: "Chiu Chow Garden (Tai Wai)", nameZh: "潮庭", group: "Chiu Chow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 501, 5/F, The Wai, 18 Che Kung Miu Road, Tai Wai", lat: 22.3726, lng: 114.1790, area: "nt" },
+    { name: "Chiu Chow Garden (YOHO Mall)", nameZh: "潮庭", group: "Chiu Chow Garden (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 1035, 1/F, YOHO Mall I, Yuen Long", lat: 22.4445, lng: 114.0224, area: "nt" },
+
+    // --- Jasmine 八月花 (5 branches) ---
+    { name: "Jasmine (Windsor House)", nameZh: "八月花", group: "Jasmine (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "8/F, Windsor House, 311 Gloucester Road, Causeway Bay", lat: 22.2795, lng: 114.1865, area: "cwb" },
+    { name: "Jasmine (Festival Walk)", nameZh: "八月花", group: "Jasmine (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop LG2-40, Festival Walk, Kowloon Tong", lat: 22.3372, lng: 114.1755, area: "kowloon" },
+    { name: "Jasmine (V city)", nameZh: "八月花", group: "Jasmine (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop M-50, MTR Floor, V city, Tuen Mun", lat: 22.3908, lng: 113.9728, area: "nt" },
+    { name: "Jasmine (Citygate)", nameZh: "八月花", group: "Jasmine (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shops 255 & 301, 2-3/F, Citygate Outlets, 20 Tat Tung Road, Tung Chung", lat: 22.2892, lng: 113.9406, area: "nt" },
+    { name: "Jasmine (Citywalk)", nameZh: "八月花", group: "Jasmine (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 107, 1/F, Citywalk, 1 Yeung Uk Road, Tsuen Wan", lat: 22.3713, lng: 114.1145, area: "nt" },
+
+    // --- Serenade 映月樓 (1 branch) ---
+    { name: "Serenade", nameZh: "映月樓", group: "Serenade (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "1-2/F, Restaurant Block, HK Cultural Centre, Salisbury Road, TST", lat: 22.2934, lng: 114.1700, area: "tst" },
+
+    // --- Shanghai Cuisine 紫玉蘭 (1 branch) ---
+    { name: "Shanghai Cuisine", nameZh: "紫玉蘭", group: "Shanghai Cuisine (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "402, 4/F, Platform, Exchange Square, Central", lat: 22.2840, lng: 114.1557, area: "central" },
+
+    // --- The Square 翠玉軒 (1 branch) ---
+    { name: "The Square", nameZh: "翠玉軒", group: "The Square (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm | Takeaway 20% off", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off\nTakeaway: 20% off (all day)", address: "Shop 401, 4/F, Platform, Exchange Square Tower 2, Central", lat: 22.2840, lng: 114.1558, area: "central" },
+
+    // --- CAFÉ LANDMARK (1 branch, Western restaurant - no takeaway offer) ---
+    { name: "CAFÉ LANDMARK", nameZh: "", group: "CAFÉ LANDMARK (Maxim's)", discount: "25-40% off dinner", discountPct: 40, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", details: "Mon-Thu, 2-3 pax: 40% off\nMon-Thu, 4-12 pax: 25% off\nFri-Sun, 2-12 pax: 25% off", address: "The Landmark, Central", lat: 22.2817, lng: 114.1587, area: "central" },
+
+    // ===== J. Heichinrou - 30% off dinner + 15% wine + 30% takeaway (Platinum Credit Card only) =====
+    { name: "Heichinrou (Diamond Hill)", nameZh: "聘珍樓", group: "Heichinrou", discount: "30% off dinner + 15% wine", discountPct: 30, timing: "Dinner after 6pm | Takeaway 30% off all day", cards: "Platinum Credit", details: "30% off food & selected beverages (dinner after 6pm)\n15% off wine & spirits (Mon-Fri dinner)\n30% off takeaway (all day)\nMax savings capped at HK$1,200 per visit", address: "Shop 208, Level 2, Plaza Hollywood, 3 Lung Poon Street, Diamond Hill", lat: 22.3404, lng: 114.2014, area: "kowloon" },
+    { name: "Heichinrou (Kwun Tong)", nameZh: "聘珍樓", group: "Heichinrou", discount: "30% off dinner + 15% wine", discountPct: 30, timing: "Dinner after 6pm | Takeaway 30% off all day", cards: "Platinum Credit", details: "30% off food & selected beverages (dinner after 6pm)\n15% off wine & spirits (Mon-Fri dinner)\n30% off takeaway (all day)\nMax savings capped at HK$1,200 per visit", address: "Level 6, Millennium City 6, 392 Kwun Tong Road, Kwun Tong", lat: 22.3113, lng: 114.2257, area: "kowloon" },
+
+    // ===== K. Mira Dining - 30% off dinner =====
+    { name: "Chinesology", nameZh: "唐述", group: "Mira Dining", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "3101, Podium Level 3, ifc Mall, Central", lat: 22.2856, lng: 114.1577, area: "central" },
+    { name: "Cuisine Cuisine ifc", nameZh: "國金軒", group: "Mira Dining", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "3101, Podium Level 3, ifc mall, Central", lat: 22.2854, lng: 114.1579, area: "central" },
+    { name: "Daai Zaak", nameZh: "大宅", group: "Mira Dining", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "3/F, Mira Moon, 388 Jaffe Road, Causeway Bay", lat: 22.2780, lng: 114.1780, area: "cwb" },
+    { name: "Mue Mue", nameZh: "", group: "Mira Dining", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "302, L3, Mira Place 1, TST", lat: 22.2985, lng: 114.1720, area: "tst" },
+    { name: "Tsui Hang Village (Central)", nameZh: "翠亨邨", group: "Mira Dining", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "2/F, New World Tower, 16-18 Queen's Road, Central", lat: 22.2825, lng: 114.1568, area: "central" },
+    { name: "Tsui Hang Village (TST)", nameZh: "翠亨邨", group: "Mira Dining", discount: "30% off dinner", discountPct: 30, timing: "Dinner after 6pm", cards: "Platinum / Platinum Credit", address: "Shop 507, L5, Mira Place 1, 132 Nathan Road, TST", lat: 22.2986, lng: 114.1719, area: "tst" },
+
+    // ===== L. Peony - 10% off lunch/dinner for Platinum (Mon-Fri) =====
+    { name: "Peony Chinese Restaurant", nameZh: "牡丹軒中菜廳", group: "Peony", discount: "10% off + special set $468", discountPct: 10, timing: "Mon-Fri lunch & dinner", cards: "Platinum / Platinum Credit", details: "10% off lunch (Mon-Fri)\n10% off dinner (Mon-Fri)\n10% off takeaway dinner (Mon-Fri)\nSpecial set menu $468/pax (original $688, Mon-Sun)", address: "Harbour Grand Kowloon, 20 Tak Fung Street, Whampoa, Hung Hom", lat: 22.3053, lng: 114.1862, area: "kowloon" },
+
+    // ===== M. S&S Hospitality - 30% off all day food & beverages (Platinum Card only) =====
+    { name: "ALTO", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "31/F, V Point, 18 Tang Lung Street, Causeway Bay", lat: 22.2790, lng: 114.1845, area: "cwb" },
+    { name: "Bombay Dreams", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "1/F, Winning Centre, 46-48 Wyndham Street, Central", lat: 22.2814, lng: 114.1555, area: "central" },
+    { name: "Braza", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "3/F, Grand Progress Building, 15-16 Lan Kwai Fong, Central", lat: 22.2810, lng: 114.1555, area: "central" },
+    { name: "Bouchon", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "49 Elgin Street, Soho, Central", lat: 22.2824, lng: 114.1518, area: "central" },
+    { name: "Boticario", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop G5 & UG15, Tsim Sha Tsui Centre, 66 Mody Road, TST", lat: 22.2963, lng: 114.1745, area: "tst" },
+    { name: "Harbourside Grill", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop OTE401, 4/F, Ocean Terminal, Harbour City, TST", lat: 22.2944, lng: 114.1678, area: "tst" },
+    { name: "Spiga", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "3/F, LHT Tower, 31 Queens Road, Central", lat: 22.2820, lng: 114.1560, area: "central" },
+    { name: "Tango", nameZh: "", group: "S&S Hospitality", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "2/F, Grand Progress Building, 15-16 Lan Kwai Fong, Central", lat: 22.2811, lng: 114.1556, area: "central" },
+
+    // ===== N. The Food Story - 30% off all day food & beverages (Platinum Card only) =====
+    { name: "HUSO", nameZh: "", group: "The Food Story", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop 2, 1/F, The Pottinger Hotel, 74 Queen's Road Central", lat: 22.2820, lng: 114.1575, area: "central" },
+    { name: "Mulan", nameZh: "沐瀾", group: "The Food Story", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop OTE303, 3/F, Ocean Terminal, Harbour City, TST", lat: 22.2943, lng: 114.1681, area: "tst" },
+    { name: "Shiawase", nameZh: "幸‧匠燒", group: "The Food Story", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop OTE402, 4/F, Ocean Terminal, Harbour City, TST", lat: 22.2945, lng: 114.1679, area: "tst" },
+    { name: "Shiawase Yakitori (K11)", nameZh: "幸福鳥", group: "The Food Story", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop G18-19, G/F, K11 Art Mall, 18 Hanoi Road, TST", lat: 22.3000, lng: 114.1720, area: "tst" },
+    { name: "Shiawase Yakitori (Taikoo)", nameZh: "幸福鳥", group: "The Food Story", discount: "30% off all day", discountPct: 30, timing: "All day (food & beverages)", cards: "Platinum", address: "Shop TKS-01, G/F, Apita, Cityplaza, 18 Taikoo Shing Road", lat: 22.2841, lng: 114.2170, area: "cwb" },
+
+    // ===== O. Wooloomooloo Group - 30% off designated dinner set (Platinum Card only) =====
+    { name: "MOOO!", nameZh: "", group: "Wooloomooloo Group", discount: "30% off dinner set", discountPct: 30, timing: "Dinner after 6pm (designated menu)", cards: "Platinum", address: "Shop 301 & 305, L3, Mira Place 1, 132 Nathan Road, TST", lat: 22.2984, lng: 114.1721, area: "tst" },
+    { name: "OMAROO Grill", nameZh: "", group: "Wooloomooloo Group", discount: "30% off dinner set", discountPct: 30, timing: "Dinner after 6pm (designated menu)", cards: "Platinum", address: "26/F, H Queen's, 80 Queen's Road, Central", lat: 22.2818, lng: 114.1563, area: "central" },
+    { name: "Wooloomooloo Steakhouse (TST East)", nameZh: "", group: "Wooloomooloo Group", discount: "30% off dinner set", discountPct: 30, timing: "Dinner after 6pm (designated menu)", cards: "Platinum", address: "G7/8, Tsim Sha Tsui Centre, 66 Mody Road, TST East", lat: 22.2964, lng: 114.1746, area: "tst" },
+    { name: "Wooloomooloo Steakhouse (Wan Chai)", nameZh: "", group: "Wooloomooloo Group", discount: "30% off dinner set", discountPct: 30, timing: "Dinner after 6pm (designated menu)", cards: "Platinum", address: "31/F, The Hennessy, 256 Hennessy Road, Wan Chai", lat: 22.2776, lng: 114.1752, area: "cwb" },
+    { name: "Wooloomooloo Prime", nameZh: "", group: "Wooloomooloo Group", discount: "30% off dinner set", discountPct: 30, timing: "Dinner after 6pm (designated menu)", cards: "Platinum", address: "Level 21, The ONE, 100 Nathan Road, TST", lat: 22.2998, lng: 114.1718, area: "tst" },
+];
+
+// Group colors
+const groupColors = {
+    "1957 & Co.": "#e74c3c",
+    "agnès b. CAFÉ": "#e91e63",
+    "Cafe Deco Group": "#9c27b0",
+    "Chess House": "#673ab7",
+    "Elite Concepts": "#3f51b5",
+    "JIA Group": "#2196f3",
+    "Heichinrou": "#ff9800",
+    "Mira Dining": "#009688",
+    "Peony": "#4caf50",
+    "S&S Hospitality": "#795548",
+    "The Food Story": "#ff5722",
+    "Wooloomooloo Group": "#607d8b",
+};
+
+// All Maxim's brands get the same red color
+const maximsColor = "#d32f2f";
+
+function getGroupColor(group) {
+    if (group.includes("Maxim's")) return maximsColor;
+    return groupColors[group] || '#006fcf';
+}
+
+// Init map
+const map = L.map('map').setView([22.320, 114.17], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
+}).addTo(map);
+
+// Create markers
+const markers = [];
+restaurants.forEach((r, i) => {
+    const color = getGroupColor(r.group);
+    const label = r.discountPct >= 40 ? '40' : r.discountPct;
+    const icon = L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">${label}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -16],
+    });
+
+    const marker = L.marker([r.lat, r.lng], { icon }).addTo(map);
+    marker.bindPopup(`
+        <div class="popup-name">${r.name}</div>
+        ${r.nameZh ? `<div class="popup-name-zh">${r.nameZh}</div>` : ''}
+        <div class="popup-group">${r.group}</div>
+        <div class="popup-discount">${r.discount}</div>
+        ${r.details ? `<div class="popup-details">${r.details}</div>` : ''}
+        <div class="popup-address">${r.address}</div>
+        <div class="popup-cards">Card: ${r.cards}</div>
+        <div class="popup-timing">Timing: ${r.timing}</div>
+    `, { maxWidth: 320 });
+
+    markers.push({ marker, data: r, index: i });
+});
+
+// Render list
+const listEl = document.getElementById('restaurant-list');
+const countEl = document.getElementById('count-bar');
+const searchInput = document.getElementById('search-input');
+let activeFilter = 'all';
+let highlightedIdx = null;
+
+function renderList(filtered) {
+    countEl.textContent = `${filtered.length} restaurant${filtered.length !== 1 ? 's' : ''} found`;
+    listEl.innerHTML = filtered.map(({ data: r, index: i }) => `
+        <div class="restaurant-card ${highlightedIdx === i ? 'highlighted' : ''}" data-index="${i}">
+            <div class="restaurant-name">${r.name}</div>
+            ${r.nameZh ? `<div class="restaurant-name-zh">${r.nameZh}</div>` : ''}
+            <div class="restaurant-group">${r.group}</div>
+            <div class="restaurant-discount">${r.discount}</div>
+            <div class="restaurant-address">${r.address}</div>
+            <div class="restaurant-meta">${r.timing}</div>
+            <div class="card-badge">${r.cards}</div>
+        </div>
+    `).join('');
+
+    listEl.querySelectorAll('.restaurant-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const idx = parseInt(card.dataset.index);
+            const m = markers[idx];
+            highlightedIdx = idx;
+            map.setView([m.data.lat, m.data.lng], 17);
+            m.marker.openPopup();
+            renderList(filtered);
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    });
+}
+
+function applyFilters() {
+    const query = searchInput.value.toLowerCase().trim();
+    let filtered = markers.filter(({ data: r }) => {
+        // Text search
+        if (query) {
+            const text = `${r.name} ${r.nameZh} ${r.group} ${r.address} ${r.discount} ${r.cards} ${r.timing}`.toLowerCase();
+            if (!text.includes(query)) return false;
+        }
+        // Filter buttons
+        if (activeFilter === 'all') return true;
+        if (activeFilter === '30up') return r.discountPct >= 30;
+        if (activeFilter === 'maxims') return r.group.includes("Maxim's");
+        if (activeFilter === 'central') return r.area === 'central';
+        if (activeFilter === 'tst') return r.area === 'tst';
+        if (activeFilter === 'cwb') return r.area === 'cwb';
+        if (activeFilter === 'kowloon') return r.area === 'kowloon';
+        if (activeFilter === 'nt') return r.area === 'nt';
+        return true;
+    });
+    renderList(filtered);
+
+    // Update marker visibility
+    markers.forEach(({ marker, data: r }) => {
+        const inFiltered = filtered.some(f => f.data === r);
+        marker.setOpacity(inFiltered ? 1 : 0.15);
+    });
+}
+
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        applyFilters();
+    });
+});
+
+// Search
+searchInput.addEventListener('input', applyFilters);
+
+// Initial render
+applyFilters();
+</script>
+</body>
+</html>
