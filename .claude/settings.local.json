@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.americanexpress.com)",
+      "WebFetch(domain:www.mrmiles.hk)",
+      "WebFetch(domain:www.maximschinese.com.hk)",
+      "WebFetch(domain:flyformiles.hk)",
+      "WebFetch(domain:www.redhotoffers.hsbc.com.hk)",
+      "WebFetch(domain:www.prnewswire.com)",
+      "Bash(start:*)",
+      "Bash(gh auth:*)",
+      "Bash(git config:*)",
+      "Bash(git:*)",
+      "Bash(winget list:*)",
+      "Bash(conda install:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh api:*)",
+      "Bash(gh run:*)"
+    ]
+  }
+}
