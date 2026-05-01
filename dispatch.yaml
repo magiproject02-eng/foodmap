@@ -1,0 +1,17 @@
+# Stub manifest — Phase B forever-solve.
+#
+# Empty scan_paths means the artifact-bundle Stop-hook treats this project
+# as opted out (no rows produced). Populate scan_paths once you have
+# magi-stage/ artifacts here that should auto-bundle daily.
+#
+# Spec: persona/lib/dispatch_manifest_schema.md
+version: 1
+project: foodmap
+scan_paths: []
+commit_policy: manual
+exclusions:
+  prefixes: []
+  exact: []
+  substrings: []
+signing:
+  required: true
