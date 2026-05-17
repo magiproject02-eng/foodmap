@@ -17,6 +17,58 @@ Build a webapp that visualises Amex discount restaurants on an interactive map, 
 
 ---
 
+## Type
+
+`web-app` — static HTML/JS + Leaflet map. Single `index.html` file
+with restaurant data inlined (annual artifact). `download_pdf.py` is
+a Python helper for the annual refresh.
+
+## Deploy
+
+- **Platform:** GitHub Pages on `main` branch (auto-builds).
+- **Deploy command:** `git push origin main`
+- **Deploy gate:** local preview at `http://localhost:8000/` confirms
+  map renders + all pins clickable before push.
+
+## Entry points
+
+- **Local:** `python -m http.server 8000` then open
+  `http://localhost:8000/`
+- **Production:** the GitHub Pages URL for `magiproject02-eng/foodmap`
+- **Smoke:** `curl -sf <prod-url> | grep -q "Leaflet" && echo OK`
+- **Annual refresh script:** `python download_pdf.py`
+
+## Rollback
+
+- **Last-known-good:** prior commit on `main` (per `git log`).
+- **Revert command:** `git revert <sha> && git push origin main` —
+  GitHub Pages will rebuild on push.
+- **Data reverse:** restaurant data is hard-coded in `index.html`;
+  rollback is byte-clean.
+
+## Upstream deps
+
+- **Amex Gourmet Club PDF** — external annual artifact at
+  `americanexpress.com/.../TnCs_AmexGourmetClub2026.pdf` (URL changes
+  each year). Source of truth for restaurant list.
+- **Leaflet.js** — included via CDN in `index.html`. No build step.
+- **Python** (`pypdf` or equivalent) — for `download_pdf.py` annual
+  refresh.
+
+## Downstream consumers
+
+End users (David + share-link recipients) browsing the deployed map.
+No other projects depend on this one.
+
+## Invariants
+
+- Single-file webapp — keep all HTML/CSS/JS inline (no build step).
+- No backend — pure static; never add server-side calls.
+- Restaurant data lives IN `index.html` (not external); rebuild via
+  `download_pdf.py` for annual updates.
+
+---
+
 ## Operational state — 2026-05-17 (Layer 2 baseline)
 
 Initial fill from persona's Layer 2 portfolio sweep (Claude Code direct
